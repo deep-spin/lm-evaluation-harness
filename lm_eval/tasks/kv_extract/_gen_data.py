@@ -8,6 +8,11 @@ from transformers import AutoTokenizer
 from datasets import Dataset, DatasetDict
 from tqdm import tqdm
 
+# --- Deterministic UUID generator ---
+def deterministic_uuid():
+    # Generate a UUID using random.getrandbits(128); this will be deterministic given a fixed seed.
+    return str(uuid.UUID(int=random.getrandbits(128)))
+
 # --- Helper functions ---
 
 def build_context(pairs, fmt):
@@ -36,8 +41,8 @@ def generate_pairs_until(tokenizer, target_token_count, fmt, min_pairs_required)
     all_uuids = set()
     context_str = ""
     while True:
-        new_key = str(uuid.uuid4())
-        new_value = str(uuid.uuid4())
+        new_key = deterministic_uuid()
+        new_value = deterministic_uuid()
         # Ensure uniqueness across keys and values.
         if new_key in all_uuids or new_value in all_uuids:
             continue
@@ -162,6 +167,8 @@ def main():
                         help="Output path to store the DatasetDict.")
     parser.add_argument("--push_to_hub_name", type=str, default=None,
                         help="Optional: Push the generated DatasetDict to the Hub.")
+    parser.add_argument("--push_to_hub_private", action="store_true",
+                        help="Optional: Push the generated DatasetDict to the Hub as private.")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed for reproducibility.")
     parser.add_argument("--context_sizes", type=int, nargs="+", required=True,
@@ -212,8 +219,11 @@ def main():
         print("No output path provided; data generated but not saved to disk.")
     
     if args.push_to_hub_name:
-        dataset_dict.push_to_hub(args.push_to_hub_name)
-        print(f"DatasetDict pushed to Hub with name '{args.push_to_hub_name}'")
+        dataset_dict.push_to_hub(
+            args.push_to_hub_name,
+            private=args.push_to_hub_private,
+        )
+        print(f"DatasetDict pushed to Hub with name '{args.push_to_hub_name}': private={args.push_to_hub_private}.")
     else:
         print("No hub name provided; data generated but not pushed to hub.")
 
