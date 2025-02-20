@@ -1,0 +1,27 @@
+dataset_path: DuarteMRAlves/json_kv_20250220
+doc_to_text: |
+  {{ context }}
+
+  Extract the value corresponding to the specified key in the JSON object.
+
+  {% for demo in demonstrations %}
+  Key: {{ demo.question }}
+  Corresponding value: {{ demo.answer }}
+  {% endfor %}
+
+  Key: {{ question }}
+  Corresponding value:
+test_split: train
+output_type: generate_until
+generation_kwargs:
+  do_sample: false
+  until:
+    - "</s>"
+    - "\n"
+doc_to_target: "{{ answer }}"
+metric_list:
+  - metric: exact_match
+    aggregation: mean
+metadata:
+  version: 1.0
+  num_fewshot: 2

@@ -5,7 +5,7 @@ import uuid
 import os
 
 from transformers import AutoTokenizer
-from datasets import Dataset, DatasetDict
+from datasets import Dataset
 from tqdm import tqdm
 
 # --- Deterministic UUID generator ---
@@ -240,13 +240,12 @@ def main():
 
     random.seed(args.seed)
 
-    dataset_splits = {}
     # For each combination (Cartesian product) of context size and number of query keys,
     # generate a split.
     for ctx in args.context_sizes:
         for num_q in args.num_queries:
-            split_name = f"ctx_{ctx}_num_q_{num_q}"
-            print(f"Generating split: {split_name}")
+            subset_name = f"ctx_{ctx}_num_q_{num_q}"
+            print(f"Generating subset: {subset_name}")
             ds = generate_dataset(
                 context_size=ctx,
                 model_name_or_path=args.model_name_or_path,
@@ -256,26 +255,28 @@ def main():
                 num_buckets=args.num_buckets,
                 num_demos=args.num_demos
             )
-            dataset_splits[split_name] = ds
 
-    dataset_dict = DatasetDict(dataset_splits)
-
-    if args.output_path:
-        if os.path.exists(args.output_path):
-            raise ValueError(f"Output path {args.output_path} already exists")
-        dataset_dict.save_to_disk(args.output_path)
-        print(f"DatasetDict saved to {args.output_path}")
-    else:
-        print("No output path provided; data generated but not saved to disk.")
-    
-    if args.push_to_hub_name:
-        dataset_dict.push_to_hub(
-            args.push_to_hub_name,
-            private=args.push_to_hub_private,
-        )
-        print(f"DatasetDict pushed to Hub with name '{args.push_to_hub_name}': private={args.push_to_hub_private}.")
-    else:
-        print("No hub name provided; data generated but not pushed to hub.")
+            if args.output_path:
+                subset_path = os.path.join(args.output_path, subset_name)
+                if os.path.exists(subset_path):
+                    raise ValueError(f"Output path {subset_path} already exists")
+                ds.save_to_disk(subset_path)
+                print(f"Dataset saved to {subset_path}")
+            else:
+                print("No output path provided; data generated but not saved to disk.")
+            
+            if args.push_to_hub_name:
+                ds.push_to_hub(
+                    args.push_to_hub_name,
+                    config_name=subset_name,
+                    private=args.push_to_hub_private,
+                )
+                print(
+                    f"Dataset pushed to Hub with name '{args.push_to_hub_name}/{subset_name}': "
+                    f"private={args.push_to_hub_private}."
+                )
+            else:
+                print("No hub name provided; data generated but not pushed to hub.")
 
 if __name__ == "__main__":
     main()
