@@ -32,28 +32,78 @@ def build_context(pairs, fmt):
     else:
         raise ValueError(f"Unsupported format: {fmt}")
 
+# Global variable for storing context hints.
+CONTEXT_HINTS = {}
+
 def generate_pairs_until(tokenizer, target_token_count, fmt, min_pairs_required):
     """
-    Generate key–value pairs until the formatted context reaches at least
-    `target_token_count` tokens and at least `min_pairs_required` pairs have been generated.
+    Generate key–value pairs using a binary search strategy and a context size hint.
+    
+    A global dictionary, CONTEXT_HINTS, maps target token counts to the minimal number of pairs
+    found previously. If a hint for a smaller target is available, the hint is scaled by the ratio
+    of target_token_count to the known target.
+    
+    The function returns the minimal list of pairs and the corresponding formatted context
+    that reaches at least target_token_count tokens and at least min_pairs_required pairs.
     """
+    global CONTEXT_HINTS
+
     pairs = []
-    all_uuids = set()
-    context_str = ""
-    while True:
-        new_key = deterministic_uuid()
-        new_value = deterministic_uuid()
-        # Ensure uniqueness across keys and values.
-        if new_key in all_uuids or new_value in all_uuids:
-            continue
-        all_uuids.add(new_key)
-        all_uuids.add(new_value)
-        pairs.append((new_key, new_value))
-        context_str = build_context(pairs, fmt)
+    seen = set()
+
+    def get_more(n):
+        while len(pairs) < n:
+            new_key = deterministic_uuid()
+            new_value = deterministic_uuid()
+            # Ensure uniqueness.
+            if new_key in seen or new_value in seen:
+                continue
+            seen.add(new_key)
+            seen.add(new_value)
+            pairs.append((new_key, new_value))
+    
+    # Set the initial lower bound.
+    low = min_pairs_required
+    # Determine a starting guess for the upper bound using hints if available.
+    candidate_keys = [k for k in CONTEXT_HINTS if k <= target_token_count]
+    if candidate_keys:
+        best_candidate = max(candidate_keys)
+        start_guess = int(CONTEXT_HINTS[best_candidate] * (target_token_count / best_candidate))
+    else:
+        start_guess = 500
+    high = max(start_guess, min_pairs_required)
+
+    get_more(high)
+    context_str = build_context(pairs[:high], fmt)
+    token_count = len(tokenizer.encode(context_str))
+    
+    # Expand high until the token count requirement is met.
+    while token_count < target_token_count:
+        low = high
+        high *= 2
+        get_more(high)
+        context_str = build_context(pairs[:high], fmt)
         token_count = len(tokenizer.encode(context_str))
-        if token_count >= target_token_count and len(pairs) >= min_pairs_required:
-            break
-    return pairs, context_str
+    
+    # Binary search between low and high.
+    while low < high:
+        mid = (low + high) // 2
+        context_str = build_context(pairs[:mid], fmt)
+        token_count = len(tokenizer.encode(context_str))
+        if token_count >= target_token_count:
+            high = mid
+        else:
+            low = mid + 1
+    
+    n = low
+    if n < min_pairs_required:
+        raise ValueError(f"Could not generate enough pairs to reach {min_pairs_required} pairs.")
+    context_str = build_context(pairs[:n], fmt)
+    
+    # Save the hint for the current target_token_count.
+    CONTEXT_HINTS[target_token_count] = n
+    
+    return pairs[:n], context_str
 
 def select_demo_and_query_groups(total_pairs, num_queries, num_demos):
     """
