@@ -1,0 +1,11 @@
+group: kv_extract
+task:
+  - kv_extract_ctx_4096_num_q_1
+  - kv_extract_ctx_4096_num_q_2
+  - kv_extract_ctx_8192_num_q_1
+  - kv_extract_ctx_8192_num_q_2
+aggregate_metric_list:
+  - metric: acc
+    aggregation: mean
+metadata:
+  version: 1.0
