@@ -207,6 +207,12 @@ class LM(abc.ABC):
     def set_cache_hook(self, cache_hook) -> None:
         self.cache_hook = cache_hook
 
+    def cleanup(self) -> None:
+        """Cleanup any resources used by the underlying LM model.
+        This method is intended to be overridden in a subclass to define specific cleanup behavior.
+        For models that do not require cleanup, this method does nothing by default.
+        """
+        eval_logger.info("Empty method cleanup() called. LM class does not implement cleanup.")
 
 ### SQLite-based caching of LM responses
 def hash_args(attr, args):

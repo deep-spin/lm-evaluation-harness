@@ -75,6 +75,7 @@ def simple_evaluate(
     torch_random_seed: int = 1234,
     fewshot_random_seed: int = 1234,
     confirm_run_unsafe_code: bool = False,
+    unload_lm_before_eval: bool = False,
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -315,6 +316,7 @@ def simple_evaluate(
         fewshot_as_multiturn=fewshot_as_multiturn,
         verbosity=verbosity,
         confirm_run_unsafe_code=confirm_run_unsafe_code,
+        unload_lm_before_eval=unload_lm_before_eval,
     )
 
     if lm.rank == 0:
@@ -375,6 +377,7 @@ def evaluate(
     fewshot_as_multiturn: bool = False,
     verbosity: str = "INFO",
     confirm_run_unsafe_code: bool = False,
+    unload_lm_before_eval: bool = False,
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -534,6 +537,12 @@ def evaluate(
     WORLD_SIZE = lm.world_size
     ### Postprocess outputs ###
     # TODO: del model here, maybe (idea: allow user to specify device of e.g. reward model separately)
+    if unload_lm_before_eval:
+        eval_logger.info(
+            f"Unloading model {lm.__class__.__name__} from GPU before evaluation."
+        )
+        lm.cleanup()
+
     for task_output, limit in zip(eval_tasks, limits):
         task = task_output.task
         task.apply_filters()

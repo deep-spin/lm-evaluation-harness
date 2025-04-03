@@ -273,6 +273,11 @@ def setup_parser() -> argparse.ArgumentParser:
         default=None,
         help="Base directory to load local datasets from",
     )
+    parser.add_argument(
+        "--unload_lm_before_eval",
+        action="store_true",
+        help="Unload the evaluated model before running the evaluation task.",
+    )
     return parser
 
 
@@ -426,12 +431,27 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
         torch_random_seed=args.seed[2],
         fewshot_random_seed=args.seed[3],
         confirm_run_unsafe_code=args.confirm_run_unsafe_code,
+        unload_lm_before_eval=args.unload_lm_before_eval,
         **request_caching_args,
     )
 
     if results is not None:
         if args.log_samples:
             samples = results.pop("samples")
+
+        def transform_function_keys(d):
+            if not isinstance(d, dict):
+                return d  # Base case: if not a dictionary, return as is
+            
+            new_dict = {}
+            for key, value in d.items():
+                new_key = key.__name__ if callable(key) else key  # Transform key if it's a function
+                new_dict[new_key] = transform_function_keys(value) if isinstance(value, dict) else value
+           
+            return new_dict        
+
+        results = transform_function_keys(results)
+
         dumped = json.dumps(
             results, indent=2, default=handle_non_serializable, ensure_ascii=False
         )

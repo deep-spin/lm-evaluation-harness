@@ -77,6 +77,8 @@ def handle_non_serializable(o):
         return int(o)
     elif isinstance(o, set):
         return list(o)
+    elif callable(o):
+        return o.__name__
     else:
         return str(o)
 

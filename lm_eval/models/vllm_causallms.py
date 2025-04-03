@@ -227,6 +227,28 @@ class VLLM(TemplateLM):
 
         return encoding
 
+    def cleanup(self):
+        """From https://github.com/vllm-project/vllm/issues/1908"""
+        import gc
+        import torch
+        from vllm.distributed.parallel_state import destroy_model_parallel, destroy_distributed_environment
+        import ray
+        import contextlib
+        
+        destroy_model_parallel()
+        destroy_distributed_environment()
+        self.model.sleep()
+        try:
+            del self.model.llm_engine.model_executor
+        except Exception as e:
+            eval_logger.warning(f"Failed to delete model executor: {e}")
+        del self.model
+        with contextlib.suppress(AssertionError):
+            torch.distributed.destroy_process_group()
+        gc.collect()
+        torch.cuda.empty_cache()
+        ray.shutdown()
+
     def _model_generate(
         self,
         requests: List[List[int]] = None,

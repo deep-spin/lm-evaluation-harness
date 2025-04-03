@@ -103,6 +103,16 @@ class TaskOutput:
             try:
                 agg_fn = self.task.aggregation()[metric]
             except KeyError:
+                # try again but extract the metric function name and point it to the 
+                # corresponding aggregation function
+                f_names = dict()
+                for f_name_or_obj, af in self.task.aggregation().items():
+                    if isinstance(f_name_or_obj, str):
+                        f_names[f_name_or_obj] = af
+                    else:
+                        f_names[f_name_or_obj.__name__] = af
+                agg_fn = f_names[metric]
+            except Exception:
                 # This is when process results output an arbitrary metric
                 # TODO: Handle this better and allow other aggregate functions other than mean.
                 agg_fn = mean
