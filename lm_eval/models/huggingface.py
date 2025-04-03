@@ -1451,3 +1451,11 @@ class HFLM(TemplateLM):
         if self.delta:
             model_info["delta_sha"] = get_model_sha(self.delta, self.revision)
         return model_info
+
+
+    def cleanup(self):
+        import gc
+
+        del self.model
+        gc.collect()
+        torch.cuda.empty_cache()
